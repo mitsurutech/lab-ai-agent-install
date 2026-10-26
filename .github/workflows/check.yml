@@ -1,0 +1,13 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+# Checks that compose.yaml is a valid YAML file.
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -c "import sys,yaml; yaml.safe_load(open('compose.yaml'))"

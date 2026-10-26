@@ -1,0 +1,121 @@
+# Install a coding agent yourself: opencode, an open-source AI agent that reads your code,
+# changes it and runs commands. Here nothing is installed: you install it, tell it where
+# its model is, and then use it.
+#
+# Open a shell with docker exec -it agent bash. Install the agent with
+# npm install -g opencode-ai@1.19.3, then give it its config: read
+# /home/node/opencode.example.json, which says where the platform's model answers
+# (http://ai:4000/v1) and that its name is lab, and copy it to
+# /home/node/.config/opencode/opencode.json. Then run
+# opencode project from /home/node, which opens it on /home/node/project, a small tuck
+# shop program with tests: node --test in that folder runs them.
+#
+# This lab has no way out to the internet. npm reaches the registry through a proxy at
+# http://ai:3128, and nothing else answers. What you type is sent to the model with your
+# code, so never type a password or anything personal.
+#
+# Hand in your opencode.json, the output of node --test before and after, and a few
+# sentences on what the agent changed and how you checked it yourself.
+#
+# Your project and your config are kept when the lab is stopped and started again. The
+# agent is not, because it is too big to save: install it again after a restart.
+
+x-mitsurutech-ai: true
+
+services:
+  agent:
+    image: node:22.12.0-bookworm-slim
+    user: node
+    # The home and not the project: docker makes a working directory as root, and the
+    # project is written by the agent's own account.
+    working_dir: /home/node
+    environment:
+      # The only way out: the registry, through the sidecar's proxy. Nothing else answers.
+      HTTPS_PROXY: http://ai:3128
+      HTTP_PROXY: http://ai:3128
+      NO_PROXY: ai
+      # Installed into /tmp/agent, which is not kept, because the agent is too big to save.
+      NPM_CONFIG_PREFIX: /tmp/agent
+      PATH: /tmp/agent/bin:/usr/local/bin:/usr/bin:/bin
+      XDG_DATA_HOME: /tmp/agent/data
+      XDG_CACHE_HOME: /tmp/agent/cache
+      XDG_STATE_HOME: /tmp/agent/state
+      OPENCODE_DISABLE_AUTOUPDATE: "1"
+    entrypoint:
+      - sh
+      - -c
+      - |
+        mkdir -p /home/node/project /tmp/agent/lib
+        cd /home/node/project
+        if [ ! -f shop.js ]; then
+          cat > shop.js <<'JS'
+        // The tuck shop's till. Prices are in pence, so a sum is never a fraction of a penny.
+        const PRICES = { crisps: 60, apple: 35, juice: 85, flapjack: 120 };
+
+        function total(basket) {
+          let sum = 0;
+          for (const item of basket) {
+            sum = PRICES[item];
+          }
+          return sum;
+        }
+
+        function change(paid, basket) {
+          return paid - total(basket);
+        }
+
+        function asPounds(pence) {
+          return '£' + (pence / 100).toFixed(2);
+        }
+
+        module.exports = { PRICES, total, change, asPounds };
+
+        if (require.main === module) {
+          const basket = ['crisps', 'juice', 'apple'];
+          console.log('Total:', asPounds(total(basket)));
+          console.log('Change from £5:', asPounds(change(500, basket)));
+        }
+        JS
+          cat > shop.test.js <<'JS'
+        const test = require('node:test');
+        const assert = require('node:assert');
+        const { total, change, asPounds } = require('./shop');
+
+        test('one item costs its price', () => assert.strictEqual(total(['apple']), 35));
+        test('a basket adds up', () => assert.strictEqual(total(['crisps', 'juice', 'apple']), 180));
+        test('an empty basket is free', () => assert.strictEqual(total([]), 0));
+        test('change from five pounds', () => assert.strictEqual(change(500, ['flapjack']), 380));
+        test('pence as pounds', () => assert.strictEqual(asPounds(180), '£1.80'));
+        JS
+        fi
+        if [ ! -f /home/node/opencode.example.json ]; then
+          cat > /home/node/opencode.example.json <<'JSON'
+        {
+          "$$schema": "https://opencode.ai/config.json",
+          "provider": {
+            "lab": {
+              "npm": "@ai-sdk/openai-compatible",
+              "name": "Lab model",
+              "options": { "baseURL": "http://ai:4000/v1", "apiKey": "lab" },
+              "models": { "lab": { "name": "Lab model" } }
+            }
+          },
+          "model": "lab/lab",
+          "autoupdate": false,
+          "share": "disabled",
+          "permission": { "edit": "ask", "bash": "ask", "webfetch": "deny" }
+        }
+        JSON
+        fi
+        exec sleep infinity
+    volumes:
+      - work:/home/node
+    tty: true
+    # The agent is a large program and npm needs room to install it.
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+volumes:
+  work:
