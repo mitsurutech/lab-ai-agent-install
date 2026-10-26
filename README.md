@@ -1,5 +1,7 @@
 # Install a coding agent yourself lab: set up opencode and point it at a model, on a small project with tests
 
+[English](README.md) | [Français](README.fr.md) | [Español](README.es.md) | [日本語](README.ja.md) | [Deutsch](README.de.md)
+
 [![check](https://github.com/mitsurutech/lab-ai-agent-install/actions/workflows/check.yml/badge.svg)](https://github.com/mitsurutech/lab-ai-agent-install/actions/workflows/check.yml)
 
 A ready-made lab for classrooms, from the [MitsuruTech Learning Platform](https://mitsurutech.co.uk/learning), where schools, colleges and universities give every student their own databases, containers and terminal in the browser. It is a lab where nothing is installed: you install opencode, an open-source AI agent, tell it where its model is, and then use it on a small project with tests.
